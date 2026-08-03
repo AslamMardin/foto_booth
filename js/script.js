@@ -257,6 +257,7 @@
   // Init
   // ============================================================
   (function bootstrap() {
+    showScreen("start"); // pastikan layar awal benar-benar tampil
     renderTemplatePicker();
     Promise.all(templates.map(preloadFrame)).then(() => {
       if (selectedTemplate) overlay.src = selectedTemplate.src;
