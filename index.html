@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Photobooth — Jepret &amp; Cetak</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Poppins:ital,wght@0,400;0,500;0,600;0,700;1,500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="grain" aria-hidden="true"></div>
+
+<header class="site-header">
+  <p class="eyebrow">STANDALONE WEB PHOTOBOOTH</p>
+  <h1 class="wordmark">PHOTO<span>BOOTH</span></h1>
+</header>
+
+<main class="app" id="app">
+
+  <!-- ===== LAYAR 1: IZIN / START ===== -->
+  <section class="screen" id="screen-start" data-active="true" aria-labelledby="start-title">
+    <div class="ticket-card start-card">
+      <div class="viewfinder-icon" aria-hidden="true">
+        <span class="vf-corner tl"></span><span class="vf-corner tr"></span>
+        <span class="vf-corner bl"></span><span class="vf-corner br"></span>
+        <svg width="46" height="46" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M4 8.5C4 7.11929 5.11929 6 6.5 6H8L9.2 4.4C9.4 4.15 9.7 4 10 4H14C14.3 4 14.6 4.15 14.8 4.4L16 6H17.5C18.8807 6 20 7.11929 20 8.5V16.5C20 17.8807 18.8807 19 17.5 19H6.5C5.11929 19 4 17.8807 4 16.5V8.5Z" stroke="#F5EFE6" stroke-width="1.6"/>
+          <circle cx="12" cy="12.5" r="3.4" stroke="#F5EFE6" stroke-width="1.6"/>
+        </svg>
+      </div>
+      <h2 id="start-title">Siap difoto?</h2>
+      <p>Aplikasi ini butuh akses kamera perangkatmu. Tidak ada foto yang tersimpan ke server — semua diproses langsung di browser.</p>
+      <button class="btn btn-primary btn-lg" id="btn-start" type="button">Aktifkan Kamera</button>
+    </div>
+  </section>
+
+  <!-- ===== LAYAR ERROR ===== -->
+  <section class="screen" id="screen-error" aria-labelledby="error-title">
+    <div class="ticket-card error-card">
+      <h2 id="error-title">Kamera belum bisa diakses</h2>
+      <p id="error-message">Terjadi kendala saat membuka kamera.</p>
+      <button class="btn btn-primary btn-lg" id="btn-retry" type="button">Coba Lagi</button>
+    </div>
+  </section>
+
+  <!-- ===== LAYAR 2-4: KAMERA AKTIF ===== -->
+  <section class="screen" id="screen-camera" aria-labelledby="camera-title">
+    <h2 class="sr-only" id="camera-title">Tampilan kamera</h2>
+
+    <div class="stage-wrap">
+      <div class="stage" id="stage">
+        <span class="vf-corner tl"></span><span class="vf-corner tr"></span>
+        <span class="vf-corner bl"></span><span class="vf-corner br"></span>
+
+        <video id="video" autoplay playsinline muted></video>
+        <img id="overlay" class="overlay" alt="" aria-hidden="true">
+        <canvas id="canvas" width="555" height="331" class="sr-only"></canvas>
+
+        <div class="countdown" id="countdown" aria-live="assertive"></div>
+        <div class="flash" id="flash" aria-hidden="true"></div>
+      </div>
+    </div>
+
+    <div class="template-picker">
+      <p class="picker-label">Pilih bingkai</p>
+      <div class="template-track" id="template-track" role="group" aria-label="Pilihan bingkai foto"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-shutter" id="btn-shutter" type="button" aria-label="Ambil foto">
+        <span class="shutter-ring"></span>
+      </button>
+      <p class="hint">Posisikan wajahmu di dalam bingkai, lalu tekan tombol jepret</p>
+    </div>
+  </section>
+
+  <!-- ===== LAYAR 5-6: PRATINJAU HASIL ===== -->
+  <section class="screen" id="screen-preview" aria-labelledby="preview-title">
+    <h2 class="sr-only" id="preview-title">Hasil foto</h2>
+
+    <div class="ticket-card result-card">
+      <div class="perforation" aria-hidden="true"></div>
+      <img id="result-img" alt="Hasil foto photobooth kamu">
+      <div class="perforation" aria-hidden="true"></div>
+    </div>
+
+    <div class="preview-actions">
+      <button class="btn btn-outline btn-lg" id="btn-retake" type="button">Ulangi</button>
+      <button class="btn btn-primary btn-lg" id="btn-download" type="button">Unduh Foto</button>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <p>Diproses 100% di perangkatmu &middot; 4,7&nbsp;&times;&nbsp;2,8&nbsp;cm &middot; 555&nbsp;&times;&nbsp;331&nbsp;px @300dpi</p>
+</footer>
+
+<script src="js/templates.js"></script>
+<script src="js/script.js"></script>
+</body>
+</html>
