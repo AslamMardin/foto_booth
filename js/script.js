@@ -1,43 +1,66 @@
 (() => {
   "use strict";
 
-  // ---- konstanta output (hardcoded sesuai PRD bagian 2) ----
-  const OUT_W = 555;
-  const OUT_H = 331;
-  const COUNTDOWN_SECONDS = 3;
+  // ---- konstanta output (STRIP di-import dari templates.js) ----
+  const OUT_W = STRIP.width;
+  const OUT_H = STRIP.height;
+  const SLOTS = STRIP.slots;
+  const SHOT_TRANSITION_MS = 1500;
   const DOWNLOAD_FILENAME = "photobooth-hasil.png";
 
   // ---- referensi elemen ----
   const screens = {
-    start: document.getElementById("screen-start"),
+    login: document.getElementById("screen-login"),
+    expired: document.getElementById("screen-expired"),
     error: document.getElementById("screen-error"),
+    setup: document.getElementById("screen-setup"),
     camera: document.getElementById("screen-camera"),
     preview: document.getElementById("screen-preview"),
   };
+  // layar yang menampilkan badge sesi & tombol "Selesai & Kembali"
+  const SESSION_SCREENS = new Set(["setup", "camera", "preview", "error"]);
 
-  const btnStart = document.getElementById("btn-start");
+  const loginForm = document.getElementById("login-form");
+  const loginCodeInput = document.getElementById("login-code");
+  const loginError = document.getElementById("login-error");
+  const btnExpiredOk = document.getElementById("btn-expired-ok");
+
   const btnRetry = document.getElementById("btn-retry");
   const errorMessage = document.getElementById("error-message");
 
+  const durationOptions = document.getElementById("duration-options");
+  const customWrap = document.getElementById("custom-duration-wrap");
+  const customInput = document.getElementById("custom-duration");
+  const templateTrack = document.getElementById("template-track");
+  const btnStartSession = document.getElementById("btn-start-session");
+
+  const shotDotsEls = [...document.querySelectorAll(".dot-shot")];
   const video = document.getElementById("video");
-  const overlay = document.getElementById("overlay");
-  const canvas = document.getElementById("canvas");
+  const canvas = document.getElementById("strip-canvas");
   const ctx = canvas.getContext("2d");
+  const shotBanner = document.getElementById("shot-banner");
   const countdownEl = document.getElementById("countdown");
   const flashEl = document.getElementById("flash");
-
-  const templateTrack = document.getElementById("template-track");
   const btnShutter = document.getElementById("btn-shutter");
+  const cameraHint = document.getElementById("camera-hint");
 
   const resultImg = document.getElementById("result-img");
   const btnDownload = document.getElementById("btn-download");
   const btnRetake = document.getElementById("btn-retake");
+  const btnNewSession = document.getElementById("btn-new-session");
+
+  const sessionBadge = document.getElementById("session-badge");
+  const sessionBadgeText = document.getElementById("session-badge-text");
+  const btnEndSession = document.getElementById("btn-end-session");
 
   // ---- state ----
   let mediaStream = null;
   let selectedTemplate = templates[0] || null;
-  const frameImages = new Map(); // id -> HTMLImageElement (preloaded)
+  const frameImages = new Map();
+  let countdownDuration = 3;
   let isCapturing = false;
+
+  let session = null; // { label, minutes, expiresAt, timerId }
 
   // ============================================================
   // Navigasi antar layar
@@ -45,11 +68,113 @@
   function showScreen(name) {
     Object.values(screens).forEach((el) => el.classList.remove("active"));
     screens[name].classList.add("active");
+
+    const showChrome = SESSION_SCREENS.has(name) && session;
+    sessionBadge.hidden = !showChrome;
+    btnEndSession.hidden = !showChrome;
   }
 
   // ============================================================
-  // F-02 — Katalog Template
+  // LOGIN — kode akses / paket waktu
   // ============================================================
+  loginForm.addEventListener("submit", (e) => {
+    e.preventDefault();
+    const raw = loginCodeInput.value.trim();
+    const match = accessPackages.find(
+      (pkg) => pkg.code.toUpperCase() === raw.toUpperCase() && raw.length > 0
+    );
+    if (!match) {
+      loginError.hidden = false;
+      loginCodeInput.focus();
+      return;
+    }
+    loginError.hidden = true;
+    loginCodeInput.value = "";
+    startSession(match);
+  });
+
+  function startSession(pkg) {
+    stopSessionTimer();
+    session = { label: pkg.label, minutes: pkg.minutes, expiresAt: null, timerId: null };
+
+    if (pkg.minutes != null) {
+      session.expiresAt = Date.now() + pkg.minutes * 60 * 1000;
+      updateSessionBadge();
+      session.timerId = setInterval(updateSessionBadge, 1000);
+    } else {
+      sessionBadge.classList.remove("low");
+      sessionBadgeText.textContent = `${pkg.label} \u00B7 \u221E`;
+    }
+
+    showScreen("setup");
+  }
+
+  function updateSessionBadge() {
+    if (!session || session.expiresAt == null) return;
+    const remainingMs = session.expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      expireSession();
+      return;
+    }
+    const totalSec = Math.ceil(remainingMs / 1000);
+    const mm = String(Math.floor(totalSec / 60)).padStart(2, "0");
+    const ss = String(totalSec % 60).padStart(2, "0");
+    sessionBadgeText.textContent = `${mm}:${ss}`;
+    sessionBadge.classList.toggle("low", totalSec <= 60);
+  }
+
+  function stopSessionTimer() {
+    if (session && session.timerId) clearInterval(session.timerId);
+  }
+
+  function expireSession() {
+    stopSessionTimer();
+    stopCamera();
+    session = null;
+    resetForNextGuest();
+    showScreen("expired");
+  }
+
+  btnExpiredOk.addEventListener("click", () => showScreen("login"));
+
+  btnEndSession.addEventListener("click", () => {
+    const ok = window.confirm("Akhiri sesi ini dan kembali ke layar login?");
+    if (!ok) return;
+    stopSessionTimer();
+    stopCamera();
+    session = null;
+    resetForNextGuest();
+    showScreen("login");
+  });
+
+  // ============================================================
+  // SETUP — durasi countdown & template
+  // ============================================================
+  durationOptions.addEventListener("click", (e) => {
+    const btn = e.target.closest(".dur-btn");
+    if (!btn) return;
+    [...durationOptions.children].forEach((c) => c.setAttribute("aria-pressed", "false"));
+    btn.setAttribute("aria-pressed", "true");
+
+    if (btn.dataset.seconds === "custom") {
+      customWrap.hidden = false;
+      countdownDuration = clampDuration(customInput.value);
+    } else {
+      customWrap.hidden = true;
+      countdownDuration = Number(btn.dataset.seconds);
+    }
+  });
+
+  customInput.addEventListener("input", () => {
+    countdownDuration = clampDuration(customInput.value);
+  });
+
+  function clampDuration(val) {
+    let n = parseInt(val, 10);
+    if (Number.isNaN(n)) n = 5;
+    return Math.min(30, Math.max(1, n));
+  }
+
   function preloadFrame(tpl) {
     return new Promise((resolve) => {
       const img = new Image();
@@ -74,21 +199,25 @@
       label.textContent = tpl.nama;
       btn.appendChild(label);
 
-      btn.addEventListener("click", () => selectTemplate(tpl));
+      btn.addEventListener("click", () => {
+        selectedTemplate = tpl;
+        [...templateTrack.children].forEach((child, i) => {
+          child.setAttribute("aria-pressed", templates[i].id === tpl.id ? "true" : "false");
+        });
+      });
       templateTrack.appendChild(btn);
     });
   }
 
-  function selectTemplate(tpl) {
-    selectedTemplate = tpl;
-    overlay.src = tpl.src; // F-03: live preview overlay
-    [...templateTrack.children].forEach((child, i) => {
-      child.setAttribute("aria-pressed", templates[i].id === tpl.id ? "true" : "false");
-    });
-  }
+  btnStartSession.addEventListener("click", async () => {
+    resetShotProgress();
+    btnStartSession.disabled = true;
+    await initCamera();
+    btnStartSession.disabled = false;
+  });
 
   // ============================================================
-  // F-01 — Akses Web Cam
+  // Akses kamera
   // ============================================================
   async function initCamera() {
     stopCamera();
@@ -114,54 +243,89 @@
 
   function showCameraError(err) {
     const messages = {
-      NotAllowedError:
-        "Izin kamera ditolak. Klik ikon kamera/gembok di address bar browser, izinkan akses, lalu coba lagi.",
-      PermissionDeniedError:
-        "Izin kamera ditolak. Klik ikon kamera/gembok di address bar browser, izinkan akses, lalu coba lagi.",
-      NotFoundError:
-        "Kamera tidak ditemukan. Pastikan perangkat memiliki webcam yang terhubung.",
-      DevicesNotFoundError:
-        "Kamera tidak ditemukan. Pastikan perangkat memiliki webcam yang terhubung.",
-      NotReadableError:
-        "Kamera sedang dipakai aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.",
-      OverconstrainedError:
-        "Kamera perangkat tidak mendukung pengaturan yang diminta.",
+      NotAllowedError: "Izin kamera ditolak. Klik ikon kamera/gembok di address bar browser, izinkan akses, lalu coba lagi.",
+      PermissionDeniedError: "Izin kamera ditolak. Klik ikon kamera/gembok di address bar browser, izinkan akses, lalu coba lagi.",
+      NotFoundError: "Kamera tidak ditemukan. Pastikan perangkat memiliki webcam yang terhubung.",
+      DevicesNotFoundError: "Kamera tidak ditemukan. Pastikan perangkat memiliki webcam yang terhubung.",
+      NotReadableError: "Kamera sedang dipakai aplikasi lain. Tutup aplikasi tersebut lalu coba lagi.",
+      OverconstrainedError: "Kamera perangkat tidak mendukung pengaturan yang diminta.",
     };
     errorMessage.textContent =
-      messages[err && err.name] ||
-      "Tidak dapat mengakses kamera pada perangkat/browser ini.";
+      messages[err && err.name] || "Tidak dapat mengakses kamera pada perangkat/browser ini.";
     showScreen("error");
+  }
+  btnRetry.addEventListener("click", initCamera);
+
+  // ============================================================
+  // Progress 3 jepretan
+  // ============================================================
+  function resetShotProgress() {
+    ctx.clearRect(0, 0, OUT_W, OUT_H);
+    shotDotsEls.forEach((d) => d.classList.remove("done", "current"));
+    shotDotsEls[0] && shotDotsEls[0].classList.add("current");
+    cameraHint.textContent =
+      "Posisikan wajahmu di dalam bingkai, lalu tekan tombol untuk mulai jepret 3 foto berturut-turut";
+  }
+
+  function updateDots(doneCount) {
+    shotDotsEls.forEach((dot, i) => {
+      dot.classList.toggle("done", i < doneCount);
+      dot.classList.toggle("current", i === doneCount);
+    });
   }
 
   // ============================================================
-  // F-04 / F-05 — Timer Visual + Pengambilan Foto
+  // Timer + capture berurutan (F-04/F-05/F-06 versi 3x jepret)
   // ============================================================
   function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  async function runCountdownAndCapture() {
+  btnShutter.addEventListener("click", runSequence);
+
+  async function runSequence() {
     if (isCapturing) return;
     isCapturing = true;
     btnShutter.disabled = true;
+    ctx.clearRect(0, 0, OUT_W, OUT_H);
+    updateDots(0);
 
+    for (let i = 0; i < SLOTS.length; i++) {
+      cameraHint.textContent = `Foto ${i + 1} dari ${SLOTS.length} — bersiap!`;
+      await runCountdown();
+      fireFlash();
+      captureShotIntoStrip(i);
+      updateDots(i + 1);
+
+      if (i < SLOTS.length - 1) {
+        await showShotBanner(`Foto ${i + 1} selesai! Bersiap untuk foto ${i + 2}...`);
+      }
+    }
+
+    finalizeStrip();
+    isCapturing = false;
+    btnShutter.disabled = false;
+    showScreen("preview");
+  }
+
+  async function runCountdown() {
     countdownEl.classList.add("show");
-    for (let n = COUNTDOWN_SECONDS; n >= 1; n--) {
+    for (let n = countdownDuration; n >= 1; n--) {
       countdownEl.textContent = String(n);
       countdownEl.classList.remove("pulse");
-      // force reflow supaya animasi bisa retrigger tiap angka
       void countdownEl.offsetWidth;
       countdownEl.classList.add("pulse");
       await sleep(1000);
     }
     countdownEl.classList.remove("show", "pulse");
+  }
 
-    fireFlash();
-    capturePhoto();
-    enterPreviewMode();
-
-    isCapturing = false;
-    btnShutter.disabled = false;
+  function showShotBanner(text) {
+    shotBanner.textContent = text;
+    shotBanner.classList.add("show");
+    return sleep(SHOT_TRANSITION_MS).then(() => {
+      shotBanner.classList.remove("show");
+    });
   }
 
   function fireFlash() {
@@ -170,7 +334,7 @@
     flashEl.classList.add("fire");
   }
 
-  // Menghitung area crop video agar pas seperti object-fit:cover
+  // crop video seperti object-fit:cover ke ukuran target
   function drawVideoCover(context, videoEl, targetW, targetH) {
     const vw = videoEl.videoWidth;
     const vh = videoEl.videoHeight;
@@ -194,73 +358,68 @@
     context.drawImage(videoEl, sx, sy, sw, sh, 0, 0, targetW, targetH);
   }
 
-  // F-06 — Penggabungan Gambar (foto + template) ke satu canvas 555x331
-  function capturePhoto() {
-    ctx.clearRect(0, 0, OUT_W, OUT_H);
-
-    // gambar video secara mirrored, konsisten dengan live preview
+  // gambar 1 jepretan (mirrored) langsung ke slot-nya di kanvas strip
+  function captureShotIntoStrip(index) {
+    const slot = SLOTS[index];
     ctx.save();
-    ctx.translate(OUT_W, 0);
+    ctx.translate(slot.x + slot.w, slot.y);
     ctx.scale(-1, 1);
-    drawVideoCover(ctx, video, OUT_W, OUT_H);
+    drawVideoCover(ctx, video, slot.w, slot.h);
     ctx.restore();
+  }
 
-    // gambar bingkai template di atasnya (tidak dicermin)
+  // gabungkan bingkai template di atas 3 foto yang sudah ada
+  function finalizeStrip() {
     const frameImg = selectedTemplate ? frameImages.get(selectedTemplate.id) : null;
     if (frameImg && frameImg.complete) {
       ctx.drawImage(frameImg, 0, 0, OUT_W, OUT_H);
     }
-  }
-
-  // ============================================================
-  // F-07 — Mode Pratinjau Hasil
-  // ============================================================
-  function enterPreviewMode() {
     resultImg.src = canvas.toDataURL("image/png");
-    showScreen("preview");
   }
 
   // ============================================================
-  // F-08 — Unduh Otomatis
+  // Preview: unduh / ulangi / sesi baru
   // ============================================================
-  function downloadPhoto() {
+  btnDownload.addEventListener("click", () => {
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
     link.download = DOWNLOAD_FILENAME;
     document.body.appendChild(link);
     link.click();
     link.remove();
-  }
+  });
 
-  // ============================================================
-  // F-09 — Retake
-  // ============================================================
-  function retake() {
+  btnRetake.addEventListener("click", () => {
+    resetShotProgress();
+    showScreen("camera");
+  });
+
+  btnNewSession.addEventListener("click", () => {
+    resetShotProgress();
+    showScreen("setup");
+  });
+
+  function resetForNextGuest() {
     ctx.clearRect(0, 0, OUT_W, OUT_H);
     resultImg.removeAttribute("src");
-    showScreen("camera");
+    loginCodeInput.value = "";
+    loginError.hidden = true;
   }
 
   // ============================================================
-  // Event wiring
+  // Cleanup
   // ============================================================
-  btnStart.addEventListener("click", initCamera);
-  btnRetry.addEventListener("click", initCamera);
-  btnShutter.addEventListener("click", runCountdownAndCapture);
-  btnDownload.addEventListener("click", downloadPhoto);
-  btnRetake.addEventListener("click", retake);
-
-  // hentikan kamera dengan rapi saat tab ditutup/pindah agar lampu indikator kamera mati
-  window.addEventListener("pagehide", stopCamera);
+  window.addEventListener("pagehide", () => {
+    stopSessionTimer();
+    stopCamera();
+  });
 
   // ============================================================
   // Init
   // ============================================================
   (function bootstrap() {
-    showScreen("start"); // pastikan layar awal benar-benar tampil
+    showScreen("login");
     renderTemplatePicker();
-    Promise.all(templates.map(preloadFrame)).then(() => {
-      if (selectedTemplate) overlay.src = selectedTemplate.src;
-    });
+    Promise.all(templates.map(preloadFrame));
   })();
 })();

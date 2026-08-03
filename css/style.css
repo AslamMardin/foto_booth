@@ -16,12 +16,15 @@
   --coral:     #FF5D73;
   --coral-deep:#E23A56;
   --line:      rgba(245,239,230,0.14);
+  --good:      #57C785;
+  --warn:      #FF5D73;
 
   --font-display: 'Anton', sans-serif;
   --font-body: 'Poppins', sans-serif;
 
-  --stage-w: 555px;
-  --stage-ratio: 555 / 331;
+  /* live viewfinder untuk 1 jepretan (rasio slot foto: 271/185) */
+  --shot-ratio: 271 / 185;
+  --shot-w: 340px;
 
   --radius-card: 22px;
   --radius-btn: 999px;
@@ -58,7 +61,6 @@ body{
   border:0;
 }
 
-/* subtle film-grain wash over the whole page */
 .grain{
   position:fixed; inset:0;
   pointer-events:none;
@@ -67,6 +69,48 @@ body{
   background-size: 3px 3px;
   mix-blend-mode: overlay;
 }
+
+/* ---------------- session badge ---------------- */
+.session-badge{
+  position: fixed;
+  top: 14px; right: 14px;
+  z-index: 20;
+  display:flex;
+  align-items:center;
+  gap:7px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  padding: 7px 13px;
+  border-radius: var(--radius-btn);
+  font-size: 13px;
+  font-weight:600;
+  font-variant-numeric: tabular-nums;
+}
+.session-badge .dot{
+  width:7px; height:7px;
+  border-radius:50%;
+  background: var(--good);
+}
+.session-badge.low .dot{ background: var(--warn); animation: dotPulse 1s infinite; }
+.session-badge.low{ color: var(--warn); border-color: rgba(255,93,115,0.4); }
+@keyframes dotPulse{ 50%{ opacity:0.25; } }
+
+/* ---------------- end-session button ---------------- */
+.btn-end-session{
+  position: fixed;
+  top: 14px; left: 14px;
+  z-index: 20;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight:600;
+  padding: 8px 14px;
+  border-radius: var(--radius-btn);
+  cursor:pointer;
+}
+.btn-end-session:hover{ color: var(--ink); border-color: var(--ink-dim); }
 
 /* ---------------- header / footer ---------------- */
 .site-header{
@@ -118,11 +162,11 @@ body{
   width:100%;
   flex-direction:column;
   align-items:center;
-  gap: 22px;
+  gap: 20px;
 }
 .screen.active{ display:flex; }
 
-/* ---------------- ticket card (start / error) ---------------- */
+/* ---------------- ticket card ---------------- */
 .ticket-card{
   width:100%;
   max-width: 420px;
@@ -143,8 +187,9 @@ body{
   color: var(--ink-dim);
   font-size: 14.5px;
   line-height:1.55;
-  margin: 0 0 24px;
+  margin: 0 0 22px;
 }
+.error-card h2{ color: var(--coral); }
 
 .viewfinder-icon{
   position:relative;
@@ -154,9 +199,84 @@ body{
   border-radius: 18px;
   background: var(--bg-raised);
 }
-.error-card h2{ color: var(--coral); }
 
-/* ---------------- buttons ---------------- */
+/* ---------------- login form ---------------- */
+#login-form{ display:flex; flex-direction:column; gap:14px; }
+.code-input{
+  width:100%;
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 0.18em;
+  text-align:center;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--bg-raised);
+  border: 1.5px solid var(--line);
+  border-radius: 12px;
+  padding: 14px 12px;
+  min-height: 54px;
+}
+.code-input::placeholder{ color: var(--ink-dim); letter-spacing: 0.14em; font-family: var(--font-body); font-size:13px; }
+.code-input:focus-visible{ outline: 3px solid var(--marigold); outline-offset: 2px; border-color: var(--marigold); }
+.field-error{
+  color: var(--coral) !important;
+  font-size: 13px !important;
+  margin: -6px 0 0 !important;
+  text-align:left;
+}
+
+/* ---------------- setup screen ---------------- */
+.setup-card{ max-width: 460px; text-align:left; }
+.picker-label{
+  margin: 0 0 10px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  font-weight:600;
+}
+.duration-options{
+  display:flex;
+  gap:10px;
+}
+.dur-btn{
+  flex:1;
+  padding: 12px 8px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-weight:600;
+  font-size: 14px;
+  cursor:pointer;
+  min-height: 48px;
+}
+.dur-btn[aria-pressed="true"]{
+  border-color: var(--marigold);
+  background: rgba(255,201,60,0.12);
+  color: var(--marigold);
+}
+.custom-duration{
+  margin-top: 12px;
+  display:flex;
+  align-items:center;
+  gap: 10px;
+}
+.custom-duration label{ font-size: 13px; color: var(--ink-dim); }
+.custom-duration input{
+  width: 84px;
+  padding: 10px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 15px;
+}
+.custom-duration input:focus-visible{ outline: 3px solid var(--marigold); }
+
+/* ---------------- buttons (shared) ---------------- */
 .btn{
   font-family: var(--font-body);
   font-weight:600;
@@ -173,10 +293,7 @@ body{
 
 .btn-lg{ padding: 15px 30px; min-height: 52px; width:100%; }
 
-.btn-primary{
-  background: var(--marigold);
-  color: #171416;
-}
+.btn-primary{ background: var(--marigold); color: #171416; }
 .btn-primary:hover{ filter: brightness(1.06); }
 
 .btn-outline{
@@ -186,7 +303,32 @@ body{
 }
 .btn-outline:hover{ border-color: var(--ink-dim); }
 
-/* ---------------- camera stage ---------------- */
+.btn-link{
+  background:none;
+  border:none;
+  color: var(--ink-dim);
+  font-family: var(--font-body);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor:pointer;
+  padding: 6px;
+}
+.btn-link:hover{ color: var(--marigold); }
+
+/* ---------------- shot progress dots ---------------- */
+.shot-dots{
+  display:flex;
+  gap:8px;
+}
+.dot-shot{
+  width:9px; height:9px;
+  border-radius:50%;
+  background: var(--line);
+}
+.dot-shot.done{ background: var(--marigold); }
+.dot-shot.current{ background: var(--coral); animation: dotPulse 1s infinite; }
+
+/* ---------------- camera stage (per-shot viewfinder) ---------------- */
 .stage-wrap{
   width:100%;
   display:flex;
@@ -195,8 +337,8 @@ body{
 .stage{
   position:relative;
   width:100%;
-  max-width: var(--stage-w);
-  aspect-ratio: var(--stage-ratio);
+  max-width: var(--shot-w);
+  aspect-ratio: var(--shot-ratio);
   border-radius: 16px;
   overflow:hidden;
   background: #000;
@@ -209,19 +351,9 @@ body{
   width:100%;
   height:100%;
   object-fit: cover;
-  transform: scaleX(-1);   /* mirror, mirror on the wall */
+  transform: scaleX(-1);
 }
 
-.overlay{
-  position:absolute;
-  inset:0;
-  width:100%;
-  height:100%;
-  object-fit: fill;
-  pointer-events:none;
-}
-
-/* viewfinder corner brackets — the app's recurring signature motif */
 .vf-corner{
   position:absolute;
   width:22px; height:22px;
@@ -239,7 +371,23 @@ body{
 .viewfinder-icon .vf-corner.bl{ bottom:2px; left:2px; }
 .viewfinder-icon .vf-corner.br{ bottom:2px; right:2px; }
 
-/* countdown */
+/* transition banner between shots */
+.shot-banner{
+  position:absolute;
+  inset:0;
+  z-index:6;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding: 20px;
+  background: rgba(23,20,22,0.88);
+  font-family: var(--font-display);
+  font-size: clamp(20px, 5.5vw, 28px);
+  color: var(--marigold);
+}
+.shot-banner.show{ display:flex; }
+
 .countdown{
   position:absolute;
   inset:0;
@@ -249,7 +397,7 @@ body{
   justify-content:center;
   font-family: var(--font-display);
   font-weight:400;
-  font-size: clamp(72px, 22vw, 130px);
+  font-size: clamp(64px, 20vw, 110px);
   color: var(--ink);
   text-shadow: 0 0 26px rgba(255,201,60,0.85), 0 4px 18px rgba(0,0,0,0.55);
   background: rgba(0,0,0,0.18);
@@ -262,7 +410,6 @@ body{
   100%{ transform: scale(1); opacity:1; }
 }
 
-/* flash */
 .flash{
   position:absolute;
   inset:0;
@@ -271,28 +418,14 @@ body{
   opacity:0;
   pointer-events:none;
 }
-.flash.fire{
-  animation: flashFire 380ms ease-out;
-}
+.flash.fire{ animation: flashFire 380ms ease-out; }
 @keyframes flashFire{
   0%{ opacity:0; }
   12%{ opacity:1; }
   100%{ opacity:0; }
 }
 
-/* ---------------- template picker ---------------- */
-.template-picker{
-  width:100%;
-  max-width: var(--stage-w);
-}
-.picker-label{
-  margin: 0 0 10px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--ink-dim);
-  font-weight:600;
-}
+/* ---------------- template picker (setup screen) ---------------- */
 .template-track{
   display:flex;
   gap: 12px;
@@ -302,8 +435,8 @@ body{
 }
 .tpl-thumb{
   flex: 0 0 auto;
-  width: 88px;
-  height: 52px;
+  width: 74px;
+  height: 168px;
   border-radius: 10px;
   border: 2px solid var(--line);
   padding:0;
@@ -364,34 +497,26 @@ body{
   max-width: 320px;
 }
 
-/* ---------------- result / preview ---------------- */
-.result-card{
-  max-width: var(--stage-w);
-  padding: 0;
+/* ---------------- result strip preview ---------------- */
+.result-frame{
+  width:100%;
+  max-width: 260px;
   background: var(--bg-card);
   border-radius: 18px;
   overflow:hidden;
+  border: 1px solid var(--line);
 }
-.result-card #result-img{
+.result-frame #result-img{
   display:block;
   width:100%;
   height:auto;
-  aspect-ratio: var(--stage-ratio);
-  object-fit:cover;
-}
-.perforation{
-  height: 14px;
-  background:
-    radial-gradient(circle at 10px 7px, transparent 6px, var(--bg) 6.5px) repeat-x,
-    var(--bg-card);
-  background-size: 20px 14px;
 }
 
 .preview-actions{
   display:flex;
   gap: 12px;
   width:100%;
-  max-width: var(--stage-w);
+  max-width: 340px;
 }
 .preview-actions .btn{ flex:1; }
 
@@ -404,5 +529,7 @@ body{
 @media (prefers-reduced-motion: reduce){
   .countdown.pulse{ animation: none; }
   .flash.fire{ animation: none; opacity:0; }
+  .dot-shot.current{ animation: none; }
+  .session-badge.low .dot{ animation: none; }
   .btn, .btn-shutter, .tpl-thumb{ transition: none; }
 }
